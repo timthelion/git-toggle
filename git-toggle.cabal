@@ -1,0 +1,22 @@
+Name: git-toggle
+Version: 0.0.0
+Synopsis: A utility for turning git repos on and off.
+Description: Since git doesn't support sub-repositories very well, in order to include subrepos within a super-repo, it is usefull to be able to "turn git off/on" within the sub-repo's so that the super-repo can manage the files of the sub-repo.
+Category:System
+
+License: GPL-3
+License-file:COPYING 
+Author: Timothy Hobbs
+Maintainer: Timothy Hobbs <timothyhobbs@seznam.cz>
+build-type:Simple
+
+cabal-version: >= 1.4
+
+Executable git-toggle
+ build-depends:base<5,directory,filepath,unix-compat
+ Main-is: git-toggle.hs
+
+library
+ build-depends:base<5,directory,filepath,unix-compat
+ exposed-modules:Git.Toggle.ToggleLib
+
