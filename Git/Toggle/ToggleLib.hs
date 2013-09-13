@@ -88,7 +88,6 @@ isPathTo path destination = destination == (last $ splitPath path)
 clipPaths :: [FilePath] -> [FilePath]
 clipPaths = map (\p->joinPath $ init $ splitPath p)
 
-
 getRepoState :: FilePath -> IO RepoState
 getRepoState dir
  =   findPathContainingFilesAbove [(onDirectory,On),(offDirectory,Off)] dir
@@ -119,6 +118,7 @@ actionStatesToRenames action rss = do
  translationss <- mapM (makeTranslation action) rss
  return $ concat translationss
 
+-- | Returns the file paths to be changed.  [(from,to)]
 makeTranslation :: Action -> RepoState -> IO [(FilePath,FilePath)]
 makeTranslation action state = do
   let s = goalState action
@@ -154,15 +154,26 @@ getSubDirectories path =
     isDirectory <- doesDirectoryExist (path </> name)
     return $ (not $ isSymbolicLink status) && isDirectory
 
+-- | Returns paths to all files and directories which are bellow the current directory.  i.e. the contents of this directory, all of it's subdirectories and their subdirectories and so on. 
+-- NOTE: does not return the contents of subdirectories which are symlinks.
 getDirectoryContentsRecursive :: FilePath -> IO [FilePath]
 getDirectoryContentsRecursive dir = do
- contents <- getDirectoryContents dir
- subDirs  <-getSubDirectories dir
- subDirContents <- mapM getDirectoryContentsRecursive $ map (\subDir->dir </> subDir) subDirs
- return $ concat $ (map (\file-> dir </> file) contents) : subDirContents
+ contents       <- getDirectoryContents dir
+ subDirs        <- getSubDirectories    dir
+ contentsOfSubDirs <-
+  mapM
+     getDirectoryContentsRecursive
+   $ map
+      (\subDir->dir </> subDir)
+      subDirs
+ return
+  $ concat
+  $ (map (\file-> dir </> file) contents)
+    : contentsOfSubDirs
 
 printPair :: (FilePath, FilePath) -> IO ()
-printPair (from,to) = putStrLn $ unwords ["Renaming",from,"to",to,"..."]
+printPair (from,to) =
+ putStrLn $ unwords ["Renaming",from,"to",to,"..."]
 
 renameFiles :: [(FilePath,FilePath)] -> IO ()
 renameFiles = renameFiles' renameFileOrDirectory
@@ -174,9 +185,33 @@ renameFileOrDirectory from to = do
  fromFile <- doesFileExist from
  toFile <- doesFileExist to
  case (fromDir, toDir, fromFile, toFile) of
-  (True,False,False,False) -> renameDirectory from to
+  (True,False,False,False) -> renameDirectoryButDon'tBreakSymlinks from to
   (False,False,True,False) -> renameFile from to
   _ -> putStrLn $ "Something whent wrong renaming "++from++" to "++to++"."
+
+-- | If renaming the directory would cause symlink breakage, then display an error, otherwise rename it.
+renameDirectoryButDon'tBreakSymlinks :: FilePath -> FilePath -> IO ()
+renameDirectoryButDon'tBreakSymlinks from to = do
+ don'tContinue <- wouldRenamingDirectoryBreakSymlinks from to
+ if don'tContinue
+ then
+  putStrLn "It looks like you have some relative symlinks in your git dir(Perhaps these files are locked by git-annex?).  I cannot turn git on or off."
+ renameDirectory from to
+
+wouldRenamingDirectoryBreakSymlinks :: FilePath -> FilePath -> IO Bool
+wouldRenamingDirectoryBreakSymlinks from to = do
+ filesInGitDir <- getDirectoryContentsRecursive from
+ symlinkDestinations <- mapMaybeM filesInGitDir
+
+ where
+  maybeDestination = do
+   sl <- isSymbolicLink
+   case sl of
+    True -> Just `fmap` readSymbolicLink
+    False -> return Nothing
+
+mapMaybeM :: (a -> m (Maybe b)) -> [a] -> m [b]
+mapMaybeM f as = mapM f as >>= (\mbs -> return $ catMaybes mbs)
 
 dryRenameFiles :: [(FilePath,FilePath)] -> IO ()
 dryRenameFiles = renameFiles' (\_ _->return ())
