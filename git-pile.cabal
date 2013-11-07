@@ -1,0 +1,36 @@
+Name: git-pile
+Version: 0.0.0
+Synopsis: A utility for using git repos within other git repos.
+Description: Git doesn't support subrepositories very well.  This makes it impractical to use git-annex to track one's home directory.  git-pile fixes this problem by: 1) Replacing .git directories with tarballs. 2) Providing tools for mounting those tarballs using fuser fs so that git can work with them as if they were normal repos.  3) Providing tools for temporarily extracting those tarballs when the OS does not support fusermounting.
+Category:System
+
+License: GPL-3
+License-file:COPYING 
+Author: Timothy Hobbs
+Maintainer: Timothy Hobbs <timothyhobbs@seznam.cz>
+build-type:Simple
+
+cabal-version: >= 1.4
+
+Executable git-pile
+ build-depends:base<5,directory,filepath,unix-compat,process
+ Main-is: git-pile.hs
+ other-modules: 
+                Git.Pile.DoWork.MountGit
+
+library
+ build-depends:
+               base<5,
+               directory,
+               filepath,
+               unix-compat,
+               process,
+               process-shortversions >=0.0.0 && <0.1,
+               archivemount-hs >=0.0.0 && <0.1,
+               filepath-extrautils >=0.0.0 && <0.1,
+               small-print >=0.0.0 && <0.2,
+               tar >=0.4.0 && <0.5
+ exposed-modules:Git.Pile.PileLib
+ other-modules: 
+                Git.Pile.DoWork.MountGit
+
